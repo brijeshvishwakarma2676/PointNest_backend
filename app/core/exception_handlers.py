@@ -15,7 +15,7 @@ def add_exception_handlers(app: FastAPI):
     async def api_exception_handler(request: Request, exc: APIException):
         data_str = json.dumps(exc.data, indent=2) if exc.data else "[]"
         logger.error(
-            f"API Error - Path: [{request.method}] {request.url.path}\nStatus: {exc.status_code}, Message: {exc.message}\nData: {data_str}"
+            f"API Error - Path: [{request.method}] {request.url.path} | Query: {request.query_params}\nStatus: {exc.status_code}, Message: {exc.message}\nData: {data_str}"
         )
         return JSONResponse(
             status_code=exc.status_code,
@@ -28,7 +28,7 @@ def add_exception_handlers(app: FastAPI):
     ):
         errors_str = json.dumps(exc.errors(), indent=2)
         logger.error(
-            f"Validation Error - Path: [{request.method}] {request.url.path}\nErrors: {errors_str}"
+            f"Validation Error - Path: [{request.method}] {request.url.path} | Query: {request.query_params}\nErrors: {errors_str}"
         )
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

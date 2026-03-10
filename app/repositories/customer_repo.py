@@ -12,9 +12,10 @@ def create_customer(db, data):
     return customer
 
 
-def get_customer_by_contact(db, phone=None, email=None):
+def get_customer_by_contact(db, shop_id, phone=None, email=None):
 
     return db.query(Customer).filter(
+        Customer.shop_id == shop_id,
         or_(
             Customer.phone == phone,
             Customer.email == email
