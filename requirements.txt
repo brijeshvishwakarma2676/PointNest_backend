@@ -21,3 +21,4 @@ redis
 python-multipart
 pymysql
 cryptography
+gunicorn

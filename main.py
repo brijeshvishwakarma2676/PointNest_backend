@@ -15,12 +15,19 @@ from app.core.exception_handlers import add_exception_handlers
 
 from contextlib import asynccontextmanager
 
-logging.basicConfig(
-    filename="app.log",
-    format="%(asctime)s - %(levelname)s - %(message)s\n",
-    level=logging.ERROR,
-    force=True,
-)
+import os
+
+# Configure logging
+LOG_CONFIG = {
+    "format": "%(asctime)s - %(levelname)s - %(message)s\n",
+    "level": logging.ERROR,
+    "force": True,
+}
+
+if not os.environ.get("VERCEL"):
+    LOG_CONFIG["filename"] = "app.log"
+
+logging.basicConfig(**LOG_CONFIG)
 
 logger = logging.getLogger(__name__)
 
