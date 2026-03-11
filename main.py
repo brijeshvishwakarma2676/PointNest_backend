@@ -3,7 +3,7 @@ import platform
 import uvicorn
 import multiprocessing
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi import status
@@ -65,6 +65,11 @@ add_exception_handlers(app)
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+@app.get("/")
+def root():
+    return RedirectResponse(url="/docs")
 
 
 if __name__ == "__main__":
