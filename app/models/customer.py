@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy.sql import func
 from app.config.database import Base
 
 
@@ -15,3 +16,7 @@ class Customer(Base):
     email = Column(String(255), unique=True, nullable=True)
 
     points = Column(Integer, default=0)
+
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

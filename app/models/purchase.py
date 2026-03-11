@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, ForeignKey
+from sqlalchemy import Column, Integer, ForeignKey, DateTime
+from sqlalchemy.sql import func
 from app.config.database import Base
 
 
@@ -10,3 +11,7 @@ class Purchase(Base):
     customer_id = Column(Integer, ForeignKey("customers.id"))
     amount = Column(Integer)
     points_earned = Column(Integer)
+
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

@@ -15,3 +15,4 @@ CUSTOMER_RETRIEVED_OR_CREATED_SUCCESSFULLY = (
 POINTS_RETRIEVED_SUCCESSFULLY = "Points retrieved successfully"
 PURCHASE_ADDED_SUCCESSFULLY = "Purchase added successfully"
 CUSTOMERS_FETCHED_SUCCESSFULLY = "Customers fetched successfully"
+CUSTOMER_FETCHED_SUCCESSFULLY = "Customer fetched successfully"

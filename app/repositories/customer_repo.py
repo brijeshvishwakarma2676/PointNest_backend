@@ -26,6 +26,7 @@ def get_customer_by_contact(db, shop_id, phone=None, email=None):
         db.query(Customer)
         .filter(
             Customer.shop_id == shop_id,
+            Customer.is_active == 1,
             or_(*conditions),
         )
         .first()
@@ -33,7 +34,9 @@ def get_customer_by_contact(db, shop_id, phone=None, email=None):
 
 
 def get_customers(db, shop_id, search_query=None, skip=0, limit=10):
-    query = db.query(Customer).filter(Customer.shop_id == shop_id)
+    query = db.query(Customer).filter(
+        Customer.shop_id == shop_id, Customer.is_active == 1
+    )
 
     if search_query:
         query = query.filter(
@@ -48,3 +51,15 @@ def get_customers(db, shop_id, search_query=None, skip=0, limit=10):
     items = query.offset(skip).limit(limit).all()
 
     return total, items
+
+
+def get_customer_by_id(db, shop_id, customer_id):
+    return (
+        db.query(Customer)
+        .filter(
+            Customer.shop_id == shop_id,
+            Customer.id == customer_id,
+            Customer.is_active == 1,
+        )
+        .first()
+    )
