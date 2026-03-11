@@ -13,12 +13,20 @@ def create_customer(db, data):
 
 
 def get_customer_by_contact(db, shop_id, phone=None, email=None):
+    conditions = []
+    if phone:
+        conditions.append(Customer.phone == phone)
+    if email:
+        conditions.append(Customer.email == email)
+
+    if not conditions:
+        return None
 
     return (
         db.query(Customer)
         .filter(
             Customer.shop_id == shop_id,
-            or_(Customer.phone == phone, Customer.email == email),
+            or_(*conditions),
         )
         .first()
     )

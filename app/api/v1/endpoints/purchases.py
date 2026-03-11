@@ -27,7 +27,7 @@ def add_purchase(
 
         if not customer:
             raise response_parser.generate_response(
-                status_code=status.HTTP_404_NOT_NOT_FOUND,
+                status_code=status.HTTP_404_NOT_FOUND,
                 message=messages.CUSTOMER_NOT_FOUND,
                 success=False,
             )

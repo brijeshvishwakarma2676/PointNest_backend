@@ -9,6 +9,9 @@ INVALID_CREDENTIALS = "Invalid credentials provided"
 CUSTOMER_CREATED_SUCCESSFULLY = "Customer created successfully"
 CUSTOMER_NOT_FOUND = "Customer not found"
 CUSTOMER_ALREADY_EXISTS = "Customer already exists with this phone or email"
+CUSTOMER_RETRIEVED_OR_CREATED_SUCCESSFULLY = (
+    "Customer retrieved or created successfully"
+)
 POINTS_RETRIEVED_SUCCESSFULLY = "Points retrieved successfully"
 PURCHASE_ADDED_SUCCESSFULLY = "Purchase added successfully"
 CUSTOMERS_FETCHED_SUCCESSFULLY = "Customers fetched successfully"
