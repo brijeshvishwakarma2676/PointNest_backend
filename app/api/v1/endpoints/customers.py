@@ -5,12 +5,16 @@ from sqlalchemy.exc import IntegrityError
 import logging
 
 from app.config.database import get_db
-from app.schemas.customer import CustomerCreate, CustomerListRequest
-from app.repositories.customer_repo import create_customer, get_customers, get_customer_by_id
+from app.schemas.customer import CustomerCreate, CustomerListRequest, CustomerUpdate
+from app.repositories.customer_repo import (
+    create_customer,
+    get_customers,
+    get_customer_by_id,
+)
 from app.utils import response_parser
 from app.core import messages
 from app.core.dependencies import get_current_user
-from app.services.customer_service import get_or_create_customer
+from app.services.customer_service import get_or_create_customer, update_customer
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +110,54 @@ def find_or_create(
         )
 
 
+@router.put("/update")
+def update_customer_endpoint(
+    data: CustomerUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    try:
+        # exclude_unset=True ensures we only pass fields the user actually provided
+        customer_data = data.model_dump(exclude_unset=True)
+
+        customer = update_customer(db, current_user.id, customer_data)
+
+        if not customer:
+            raise response_parser.generate_response(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message=messages.CUSTOMER_NOT_FOUND,
+                success=False,
+            )
+
+        return response_parser.success_response(
+            message=messages.CUSTOMER_UPDATED_SUCCESSFULLY,
+            data={
+                "id": customer.id,
+                "name": customer.name,
+                "phone": customer.phone,
+                "email": customer.email,
+                "points": customer.points,
+            },
+        )
+    except ValidationError as err:
+        raise response_parser.generate_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=messages.VALIDATION_ERROR,
+            data=err.errors(),
+            success=False,
+        )
+    except Exception as err:
+        db.rollback()
+        if hasattr(err, "status_code"):
+            raise err
+        logger.error(f"Internal Server Error in update_customer_endpoint(): {str(err)}")
+        raise response_parser.generate_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=messages.INTERNAL_SERVER_ERROR,
+            success=False,
+        )
+
+
 @router.post("/list")
 def list_customers(
     data: CustomerListRequest | None = None,
@@ -152,7 +204,7 @@ def list_customers(
         )
 
 
-@router.get("/get_details")
+@router.get("/get-details")
 def get_customer_details(
     customer_id: int,
     db: Session = Depends(get_db),
@@ -174,6 +226,7 @@ def get_customer_details(
                 "phone": customer.phone,
                 "email": customer.email,
                 "points": customer.points,
+                "created_at": customer.created_at,
             },
         )
     except Exception as err:

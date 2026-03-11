@@ -63,3 +63,16 @@ def get_customer_by_id(db, shop_id, customer_id):
         )
         .first()
     )
+
+
+def update_customer_details(db, customer, data: dict):
+    if "name" in data and data["name"] is not None:
+        customer.name = data["name"]
+    if "phone" in data:
+        customer.phone = data["phone"]
+    if "email" in data:
+        customer.email = data["email"]
+
+    db.commit()
+    db.refresh(customer)
+    return customer
