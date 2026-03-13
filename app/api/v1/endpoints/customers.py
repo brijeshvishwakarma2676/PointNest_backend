@@ -11,6 +11,7 @@ from app.repositories.customer_repo import (
     get_customers,
     get_customer_by_id,
 )
+from app.repositories.points_ledger_repo import get_ledger_by_customer
 from app.utils import response_parser
 from app.core import messages
 from app.core.dependencies import get_current_user
@@ -233,6 +234,50 @@ def get_customer_details(
         if hasattr(err, "status_code"):
             raise err
         logger.error(f"Internal Server Error in get_customer_details(): {str(err)}")
+        raise response_parser.generate_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=messages.INTERNAL_SERVER_ERROR,
+            success=False,
+        )
+
+
+@router.get("/ledger")
+def get_customer_ledger(
+    customer_id: int,
+    page: int = 1,
+    size: int = 20,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    try:
+        skip = (page - 1) * size
+        total, entries = get_ledger_by_customer(
+            db, current_user.id, customer_id, skip, size
+        )
+
+        return response_parser.success_response(
+            message=messages.CUSTOMER_FETCHED_SUCCESSFULLY,
+            data={
+                "items": [
+                    {
+                        "id": e.id,
+                        "type": e.type,
+                        "points": e.points,
+                        "reference_id": e.reference_id,
+                        "created_at": e.created_at,
+                    }
+                    for e in entries
+                ],
+                "total": total,
+                "page": page,
+                "size": size,
+                "total_pages": (total + size - 1) // size if size > 0 else 0,
+            },
+        )
+    except Exception as err:
+        if hasattr(err, "status_code"):
+            raise err
+        logger.error(f"Internal Server Error in get_customer_ledger(): {str(err)}")
         raise response_parser.generate_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message=messages.INTERNAL_SERVER_ERROR,

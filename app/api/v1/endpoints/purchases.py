@@ -9,6 +9,7 @@ from app.utils import response_parser
 from app.core import messages
 from app.core.dependencies import get_current_user
 from app.models.purchase import Purchase
+from app.repositories.points_ledger_repo import add_ledger_entry
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,16 @@ def add_purchase(
 
         db.add(purchase)
         customer.points += points
+        # Write to ledger BEFORE commit so it's in the same transaction
+        db.flush()  # get purchase.id
+        add_ledger_entry(
+            db,
+            shop_id=current_user.id,
+            customer_id=customer.id,
+            entry_type="earn",
+            points=points,
+            reference_id=purchase.id,
+        )
         db.commit()
 
         return response_parser.success_response(

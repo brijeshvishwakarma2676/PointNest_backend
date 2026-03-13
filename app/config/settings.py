@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     PORT: int = 8000
     IS_PROD: bool = False
+    POINTS_PER_RUPEE: int = 10  # 10 points = 1 INR (override in .env)
 
     @property
     def DATABASE_URL(self) -> str:
