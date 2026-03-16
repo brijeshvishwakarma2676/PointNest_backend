@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE: int
+    REFRESH_TOKEN_EXPIRE: int = 7  # Days
 
     APP_NAME: str = "PointNest"
     VERSION: str = "1.0.0"

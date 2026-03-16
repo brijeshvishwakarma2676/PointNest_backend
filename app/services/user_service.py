@@ -1,6 +1,6 @@
 from fastapi import status
 from app.core.security import hash_password, verify_password
-from app.core.auth import create_access_token
+from app.core.auth import create_access_token, create_refresh_token
 from app.repositories import user_repo
 from app.utils import response_parser
 from app.core import messages
@@ -52,8 +52,11 @@ def login_user(db, email, password):
             success=False,
         )
 
-    token = create_access_token({"user_id": user.id})
+    token_data = {"user_id": user.id}
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
 
     return response_parser.success_response(
-        message=messages.LOGIN_SUCCESSFULLY, data={"access_token": token}
+        message=messages.LOGIN_SUCCESSFULLY,
+        data={"access_token": access_token, "refresh_token": refresh_token},
     )
