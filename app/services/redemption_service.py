@@ -1,5 +1,6 @@
 from app.config.settings import settings
-
+from app.repositories.redemption_repo import create_redemption
+from app.repositories.points_ledger_repo import add_ledger_entry
 
 def calculate_discount(points: int) -> int:
     """Convert points to INR discount value using configurable ratio from .env."""
@@ -18,8 +19,6 @@ def redeem_points(db, customer, points_to_redeem: int, shop_id: int):
     customer.points -= points_to_redeem
 
     # Persist the redemption record first (flush to get redemption.id)
-    from app.repositories.redemption_repo import create_redemption
-    from app.repositories.points_ledger_repo import add_ledger_entry
 
     redemption = create_redemption(
         db,

@@ -4,8 +4,9 @@ from sqlalchemy.orm import Session
 import logging
 
 from app.config.database import get_db
-from app.schemas.redemption import RedeemRequest
+from app.schemas.redemption import RedeemRequest, RedemptionResponse
 from app.repositories.customer_repo import get_customer_by_contact
+from app.repositories.redemption_repo import get_redemptions_by_shop
 from app.services.redemption_service import redeem_points
 from app.utils import response_parser
 from app.core import messages
@@ -14,6 +15,28 @@ from app.core.dependencies import get_current_user
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/redemptions", tags=["redemptions"])
+
+
+@router.get("")
+def get_redemptions(
+    page: int = 1,
+    size: int = 20,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Fetch recent redemptions for the current shop."""
+    try:
+        data = get_redemptions_by_shop(db, shop_id=current_user.id, page=page, size=size)
+        return response_parser.success_response(
+            message="Redemptions fetched successfully", data=data
+        )
+    except Exception as err:
+        logger.error(f"Error in get_redemptions(): {str(err)}")
+        raise response_parser.generate_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=messages.INTERNAL_SERVER_ERROR,
+            success=False,
+        )
 
 
 @router.post("/redeem")
