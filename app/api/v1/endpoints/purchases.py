@@ -10,6 +10,7 @@ from app.core import messages
 from app.core.dependencies import get_current_user
 from app.models.purchase import Purchase
 from app.repositories.points_ledger_repo import add_ledger_entry
+from app.repositories.purchase_repo import get_recent_purchases
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,26 @@ def add_purchase(
         if hasattr(err, "status_code"):
             raise err
         logger.error(f"Internal Server Error in add_purchase(): {str(err)}")
+        raise response_parser.generate_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=messages.INTERNAL_SERVER_ERROR,
+            success=False,
+        )
+@router.get("")
+def list_purchases(
+    page: int = 1,
+    size: int = 10,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    try:
+        data = get_recent_purchases(db, shop_id=current_user.id, page=page, size=size)
+        return response_parser.success_response(
+            message="Recent purchases fetched successfully",
+            data=data
+        )
+    except Exception as err:
+        logger.error(f"Internal Server Error in list_purchases(): {str(err)}")
         raise response_parser.generate_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message=messages.INTERNAL_SERVER_ERROR,
