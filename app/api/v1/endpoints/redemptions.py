@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Query
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
+from typing import Optional
 import logging
 
 from app.config.database import get_db
@@ -21,12 +22,15 @@ router = APIRouter(prefix="/redemptions", tags=["redemptions"])
 def get_redemptions(
     page: int = 1,
     size: int = 20,
+    date_filter: Optional[str] = Query(default="all"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Fetch recent redemptions for the current shop."""
     try:
-        data = get_redemptions_by_shop(db, shop_id=current_user.id, page=page, size=size)
+        data = get_redemptions_by_shop(
+            db, shop_id=current_user.id, page=page, size=size, date_filter=date_filter
+        )
         return response_parser.success_response(
             message="Redemptions fetched successfully", data=data
         )

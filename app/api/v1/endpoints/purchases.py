@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.orm import Session
+from typing import Optional
 import logging
 
 from app.config.database import get_db
@@ -75,11 +76,14 @@ def add_purchase(
 def list_purchases(
     page: int = 1,
     size: int = 10,
+    date_filter: Optional[str] = Query(default="all"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     try:
-        data = get_recent_purchases(db, shop_id=current_user.id, page=page, size=size)
+        data = get_recent_purchases(
+            db, shop_id=current_user.id, page=page, size=size, date_filter=date_filter
+        )
         return response_parser.success_response(
             message="Recent purchases fetched successfully",
             data=data
