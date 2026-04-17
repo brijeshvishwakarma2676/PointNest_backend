@@ -19,3 +19,10 @@ CUSTOMER_FETCHED_SUCCESSFULLY = "Customer fetched successfully"
 CUSTOMER_UPDATED_SUCCESSFULLY = "Customer updated successfully"
 POINTS_REDEEMED_SUCCESSFULLY = "Points redeemed successfully"
 TOKEN_REFRESHED_SUCCESSFULLY = "Token refreshed successfully"
+
+# Coupon Module Messages
+COUPON_MINTED_SUCCESSFULLY = "Coupon voucher minted successfully"
+COUPONS_FETCHED_SUCCESSFULLY = "Coupon registry fetched successfully"
+COUPON_STATUS_UPDATED_SUCCESSFULLY = "Coupon authorization status updated"
+COUPON_NOT_FOUND = "Specified voucher protocol not found"
+COUPON_ALREADY_EXISTS = "Coupon code already exists in your registry"

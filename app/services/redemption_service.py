@@ -8,7 +8,6 @@ def calculate_discount(points: int) -> int:
 
 
 def redeem_points(db, customer, points_to_redeem: int, shop_id: int):
-    from app.repositories.redemption_repo import create_redemption
 
     if customer.points < points_to_redeem:
         return None, "Insufficient points"
