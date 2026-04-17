@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, status
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from typing import Optional
 import logging
 
 from app.config.database import get_db
@@ -10,6 +11,7 @@ from app.repositories.customer_repo import (
     create_customer,
     get_customers,
     get_customer_by_id,
+    get_customer_by_contact,
 )
 from app.repositories.points_ledger_repo import get_ledger_by_customer
 from app.utils import response_parser
@@ -207,12 +209,18 @@ def list_customers(
 
 @router.get("/get-details")
 def get_customer_details(
-    customer_id: int,
+    customer_id: Optional[int] = None,
+    phone: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     try:
-        customer = get_customer_by_id(db, current_user.id, customer_id)
+        customer = None
+        if customer_id:
+            customer = get_customer_by_id(db, current_user.id, customer_id)
+        elif phone:
+            customer = get_customer_by_contact(db, current_user.id, phone=phone)
+
         if not customer:
             raise response_parser.generate_response(
                 status_code=status.HTTP_404_NOT_FOUND,
