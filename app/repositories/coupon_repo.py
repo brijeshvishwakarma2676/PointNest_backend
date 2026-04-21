@@ -55,3 +55,16 @@ def update_coupon_status(db: Session, coupon: Coupon, status: str) -> Coupon:
     db.commit()
     db.refresh(coupon)
     return coupon
+
+def create_coupon_usage(db: Session, data: dict) -> CouponUsage:
+    usage = CouponUsage(**data)
+    db.add(usage)
+    db.commit()
+    db.refresh(usage)
+    return usage
+
+def increment_coupon_usage(db: Session, coupon: Coupon) -> Coupon:
+    coupon.usage_count += 1
+    db.commit()
+    db.refresh(coupon)
+    return coupon

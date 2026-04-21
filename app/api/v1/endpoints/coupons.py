@@ -7,11 +7,14 @@ from app.config.database import get_db
 from app.core.dependencies import get_current_user
 from app.utils import response_parser
 from app.core import messages
-from app.schemas.coupon import CouponCreate, CouponListResponse
+from app.schemas.coupon import CouponCreate, CouponListResponse, CouponValidateRequest, CouponRedeemRequest
 from app.services.coupon_service import (
     mint_new_coupon,
     list_voucher_registry,
-    toggle_coupon_authorization
+    toggle_coupon_authorization,
+    validate_coupon,
+    redeem_coupon,
+    get_coupon_detail
 )
 
 logger = logging.getLogger(__name__)
@@ -45,7 +48,7 @@ def mint_coupon(
 def get_coupon_registry(
     search_query: Optional[str] = None,
     page: int = 1,
-    size: int = 10,
+    size: int = 5,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
@@ -93,7 +96,6 @@ def get_vouchers_audit_detail(
     current_user=Depends(get_current_user)
 ):
     try:
-        from app.services.coupon_service import get_coupon_detail
         detail = get_coupon_detail(db, current_user.id, coupon_id)
         return response_parser.success_response(
             message=messages.COUPONS_FETCHED_SUCCESSFULLY,
@@ -103,6 +105,49 @@ def get_vouchers_audit_detail(
         raise e
     except Exception as e:
         logger.error(f"Internal Server Error in get_vouchers_audit_detail(): {str(e)}")
+        raise response_parser.generate_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=messages.INTERNAL_SERVER_ERROR,
+            success=False
+        )
+
+@router.post("/validate")
+def validate_coupon_code(
+    data: CouponValidateRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    try:
+        result = validate_coupon(db, current_user.id, data.code)
+        return response_parser.success_response(
+            message=result["message"],
+            data=result
+        )
+    except Exception as e:
+        logger.error(f"Error in validate_coupon_code(): {str(e)}")
+        raise response_parser.generate_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=messages.INTERNAL_SERVER_ERROR,
+            success=False
+        )
+
+@router.post("/redeem")
+def process_coupon_redemption(
+    data: CouponRedeemRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    try:
+        result = redeem_coupon(db, current_user.id, data.code, data.customer_phone, data.order_amount)
+        return response_parser.success_response(
+            message="Voucher redeemed successfully.",
+            data=result
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error in process_coupon_redemption(): {str(e)}")
         raise response_parser.generate_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message=messages.INTERNAL_SERVER_ERROR,

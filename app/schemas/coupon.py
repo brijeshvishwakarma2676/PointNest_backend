@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from datetime import datetime
 from typing import Optional, List
 from enum import Enum
@@ -42,6 +42,26 @@ class CouponResponse(CouponBase):
     created_at: datetime
     updated_at: datetime
 
+    @model_validator(mode='after')
+    def compute_status(self):
+        from app.utils.datetime_utils import get_ist_now
+        
+        if self.status == 'draft':
+            return self
+            
+        now = get_ist_now()
+        
+        if self.start_date and now < self.start_date:
+            self.status = "upcoming"
+        elif self.usage_count >= self.max_usage_global:
+            self.status = "exhausted"
+        elif self.expiry_date and now > self.expiry_date:
+            self.status = "expired"
+        else:
+            self.status = "active"
+            
+        return self
+
     model_config = ConfigDict(from_attributes=True)
 
 class CouponUsageResponse(BaseModel):
@@ -57,4 +77,19 @@ class CouponUsageResponse(BaseModel):
 
 class CouponListResponse(BaseModel):
     total: int
+    page: int
+    size: int
     items: List[CouponResponse]
+
+class CouponValidateRequest(BaseModel):
+    code: str
+
+class CouponValidateResponse(BaseModel):
+    valid: bool
+    coupon: Optional[CouponResponse] = None
+    message: str
+
+class CouponRedeemRequest(BaseModel):
+    code: str
+    customer_phone: str
+    order_amount: float
