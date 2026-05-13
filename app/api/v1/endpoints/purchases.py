@@ -14,6 +14,7 @@ from app.repositories.points_ledger_repo import add_ledger_entry
 from app.repositories.purchase_repo import get_recent_purchases
 from app.schemas.purchase import PurchaseCreate
 from app.services.coupon_service import validate_coupon, redeem_coupon
+from app.services.notification_service import emit_notification
 
 from app.services.redemption_service import calculate_discount
 from app.models.redemption import Redemption
@@ -64,10 +65,10 @@ def add_purchase(
             coupon = v_res["coupon"]
             
             # Enforce Stacking Rules
-            if points_redeemed > 0 and not coupon.is_stackable:
+            if points_redeemed > 0 and not coupon["is_stackable"]:
                 raise response_parser.generate_response(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    message=f"Coupon '{coupon.code}' cannot be combined with point redemption.",
+                    message=f"Coupon '{coupon['code']}' cannot be combined with point redemption.",
                     success=False
                 )
 
@@ -82,12 +83,12 @@ def add_purchase(
 
         # 6. Apply Coupon Discount (Applied First)
         if coupon:
-            if coupon.type == "percentage":
-                coupon_discount = (data.amount * coupon.value) // 100
-                if coupon.max_discount_cap and coupon_discount > coupon.max_discount_cap:
-                    coupon_discount = int(coupon.max_discount_cap)
+            if coupon["type"] == "percentage":
+                coupon_discount = (data.amount * coupon["value"]) // 100
+                if coupon["max_discount_cap"] and coupon_discount > coupon["max_discount_cap"]:
+                    coupon_discount = int(coupon["max_discount_cap"])
             else:
-                coupon_discount = int(coupon.value)
+                coupon_discount = int(coupon["value"])
             
             coupon_discount = min(coupon_discount, data.amount)
             payable_amount -= coupon_discount
@@ -103,7 +104,7 @@ def add_purchase(
         
         if coupon:
             # redeem_coupon utility ensures min_order_value etc are met
-            usage_res = redeem_coupon(db, current_user.id, coupon.code, data.phone, data.amount)
+            usage_res = redeem_coupon(db, current_user.id, coupon["code"], data.phone, data.amount)
             coupon_usage_id = usage_res["redemption_id"]
 
         if points_redeemed > 0:
@@ -163,6 +164,28 @@ def add_purchase(
         )
         
         db.commit()
+
+        # 10. Fire Notification for meaningful events
+        if coupon_discount > 0 or points_discount > 0:
+            parts = []
+            if coupon_discount > 0:
+                parts.append(f"coupon ({data.coupon_code}) saved ₹{coupon_discount}")
+            if points_discount > 0:
+                parts.append(f"points redeemed saved ₹{points_discount}")
+            savings_summary = " & ".join(parts)
+            emit_notification(
+                db, current_user.id,
+                "Transaction Processed",
+                f"{customer.name}'s purchase of ₹{data.amount}: {savings_summary}. Net payable: ₹{payable_amount}.",
+                "financial"
+            )
+        else:
+            emit_notification(
+                db, current_user.id,
+                "New Purchase",
+                f"{customer.name} made a purchase of ₹{data.amount} and earned {earned_points} points.",
+                "system"
+            )
 
         return response_parser.success_response(
             message=messages.PURCHASE_ADDED_SUCCESSFULLY,

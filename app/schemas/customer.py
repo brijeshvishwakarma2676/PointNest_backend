@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, model_validator
 
 
 class CustomerCreate(BaseModel):
@@ -6,11 +6,11 @@ class CustomerCreate(BaseModel):
     phone: str | None = None
     email: str | None = None
 
-    @field_validator("email", mode="before")
-    def check_contact(cls, v, values):
-        if not v and not values.get("phone"):
+    @model_validator(mode="after")
+    def check_contact(self) -> "CustomerCreate":
+        if not self.phone and not self.email:
             raise ValueError("phone or email required")
-        return v
+        return self
 
 
 class CustomerListRequest(BaseModel):
@@ -24,8 +24,8 @@ class CustomerUpdate(BaseModel):
     phone: str | None = None
     email: str | None = None
 
-    @field_validator("email", mode="before")
-    def check_contact(cls, v, values):
-        if not v and not values.get("phone"):
+    @model_validator(mode="after")
+    def check_contact(self) -> "CustomerUpdate":
+        if not self.phone and not self.email:
             raise ValueError("phone or email required")
-        return v
+        return self

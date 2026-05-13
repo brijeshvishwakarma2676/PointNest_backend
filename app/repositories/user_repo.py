@@ -102,11 +102,41 @@ def get_shop_metrics(db: Session, shop_id: int, date_filter: str = "all"):
         .scalar()
         or 0
     )
+    total_net_revenue = (
+        db.query(func.sum(Purchase.payable_amount))
+        .filter(*purchase_filters)
+        .scalar()
+        or 0
+    )
+    
+    # companion metrics for balancing UI
+    new_customers = (
+        db.query(Customer)
+        .filter(Customer.shop_id == shop_id, Customer.is_active == 1)
+        .filter(Customer.created_at >= start_dt if start_dt else True)
+        .filter(Customer.created_at <= end_dt if end_dt else True)
+        .count()
+    )
+    
+    avg_order_value = 0
+    if total_purchases > 0:
+        avg_order_value = total_revenue // total_purchases
+        
+    points_redeemed = (
+        db.query(func.sum(Purchase.points_redeemed))
+        .filter(*purchase_filters)
+        .scalar()
+        or 0
+    )
 
     return {
         "total_customers": total_customers,
+        "new_customers": new_customers,
         "total_purchases": total_purchases,
+        "avg_order_value": avg_order_value,
         "total_points_issued": total_points,
+        "total_points_redeemed": points_redeemed,
         "total_revenue": total_revenue,
+        "total_net_revenue": total_net_revenue,
         "date_filter": date_filter,
     }

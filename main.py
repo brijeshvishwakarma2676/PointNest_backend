@@ -18,16 +18,16 @@ from contextlib import asynccontextmanager
 import os
 
 # Configure logging
-LOG_CONFIG = {
-    "format": "%(asctime)s - %(levelname)s - %(message)s\n",
-    "level": logging.ERROR,
-    "force": True,
-}
-
-if not os.environ.get("VERCEL"):
-    LOG_CONFIG["filename"] = "app.log"
-
-logging.basicConfig(**LOG_CONFIG)
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+logging.basicConfig(
+    level=logging.INFO,
+    format=LOG_FORMAT,
+    handlers=[
+        logging.StreamHandler(),  # Console output
+        logging.FileHandler("app.log", encoding="utf-8")  # File output
+    ],
+    force=True
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,7 @@ app.add_middleware(
 )
 
 # create tables (temporary for dev)
+from app.models.notification import Notification
 Base.metadata.create_all(bind=engine)
 
 # register routers

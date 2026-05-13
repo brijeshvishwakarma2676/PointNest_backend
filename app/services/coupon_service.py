@@ -3,6 +3,7 @@ from app.schemas.coupon import CouponCreate, CouponResponse, CouponValidateRespo
 from app.repositories import coupon_repo, customer_repo
 from fastapi import HTTPException, status
 from app.utils.datetime_utils import get_ist_now
+from app.services.notification_service import emit_notification
 
 def mint_new_coupon(db: Session, shop_id: int, coupon_data: CouponCreate):
     # Check if a coupon with the same code already exists for this shop
@@ -13,7 +14,9 @@ def mint_new_coupon(db: Session, shop_id: int, coupon_data: CouponCreate):
             detail=f"Coupon protocol '{coupon_data.code}' is already authorized in your registry."
         )
     
-    return coupon_repo.create_coupon(db, shop_id, coupon_data.model_dump())
+    coupon = coupon_repo.create_coupon(db, shop_id, coupon_data.model_dump())
+    emit_notification(db, shop_id, "Voucher Authorized", f"A new coupon protocol '{coupon.code}' has been successfully generated in your registry.", "system")
+    return coupon
 
 def list_voucher_registry(db: Session, shop_id: int, search_query: str = None, page: int = 1, size: int = 5):
     skip = (page - 1) * size
@@ -109,10 +112,10 @@ def redeem_coupon(db: Session, shop_id: int, code: str, customer_phone: str, ord
     coupon = val_result["coupon"]
     
     # 2. Minimum Order Value Check
-    if order_amount < coupon.min_order_value:
+    if order_amount < coupon["min_order_value"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Minimum order value for this coupon is ₹{coupon.min_order_value}. Current amount is ₹{order_amount}."
+            detail=f"Minimum order value for this coupon is ₹{coupon['min_order_value']}. Current amount is ₹{order_amount}."
         )
 
     # 3. Get Customer
@@ -125,16 +128,16 @@ def redeem_coupon(db: Session, shop_id: int, code: str, customer_phone: str, ord
     
     # 4. Calculate Discount
     discount_amount = 0.0
-    if coupon.type == "percentage":
-        discount_amount = order_amount * (coupon.value / 100)
-        if coupon.max_discount_cap:
-            discount_amount = min(discount_amount, coupon.max_discount_cap)
+    if coupon["type"] == "percentage":
+        discount_amount = order_amount * (coupon["value"] / 100)
+        if coupon["max_discount_cap"]:
+            discount_amount = min(discount_amount, coupon["max_discount_cap"])
     else: # fixed
-        discount_amount = min(coupon.value, order_amount) # Can't discount more than the order itself
+        discount_amount = min(coupon["value"], order_amount) # Can't discount more than the order itself
     
     # 5. Record Usage
     usage_data = {
-        "coupon_id": coupon.id,
+        "coupon_id": coupon["id"],
         "customer_id": customer.id,
         "discount_amount": discount_amount,
         "redeemed_at": get_ist_now()
@@ -143,11 +146,15 @@ def redeem_coupon(db: Session, shop_id: int, code: str, customer_phone: str, ord
     usage_record = coupon_repo.create_coupon_usage(db, usage_data)
     
     # 6. Increment Usage Count
-    coupon_repo.increment_coupon_usage(db, coupon)
+    coupon_obj = coupon_repo.get_coupon_by_id(db, shop_id, coupon["id"])
+    if coupon_obj:
+        coupon_repo.increment_coupon_usage(db, coupon_obj)
+    
+    emit_notification(db, shop_id, "Voucher Redeemed", f"Client {customer.name} redeemed coupon {coupon['code']} saving ₹{discount_amount}.", "financial")
     
     return {
         "success": True,
-        "coupon_code": coupon.code,
+        "coupon_code": coupon["code"],
         "discount_applied": discount_amount,
         "customer_name": customer.name,
         "redemption_id": usage_record.id
