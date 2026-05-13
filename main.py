@@ -19,13 +19,16 @@ import os
 
 # Configure logging
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+handlers = [logging.StreamHandler()]
+
+# Vercel has a read-only filesystem, use /tmp for logs there
+log_file = "/tmp/app.log" if os.environ.get("VERCEL") else "app.log"
+handlers.append(logging.FileHandler(log_file, encoding="utf-8"))
+
 logging.basicConfig(
     level=logging.INFO,
     format=LOG_FORMAT,
-    handlers=[
-        logging.StreamHandler(),  # Console output
-        logging.FileHandler("app.log", encoding="utf-8")  # File output
-    ],
+    handlers=handlers,
     force=True
 )
 
