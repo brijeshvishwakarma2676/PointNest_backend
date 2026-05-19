@@ -138,15 +138,15 @@ def add_purchase(
         purchase = Purchase(
             shop_id=current_user.id,
             customer_id=customer.id,
-            amount=data.amount,
+            amount=int(data.amount),
             points_earned=earned_points,
             coupon_code=data.coupon_code,
             coupon_usage_id=coupon_usage_id,
             redemption_id=redemption_id,
             points_redeemed=points_redeemed,
-            coupon_discount=coupon_discount,
-            points_discount=points_discount,
-            payable_amount=payable_amount
+            coupon_discount=int(coupon_discount),
+            points_discount=int(points_discount),
+            payable_amount=int(payable_amount)
         )
 
         db.add(purchase)

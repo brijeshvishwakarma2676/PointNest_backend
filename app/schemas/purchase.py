@@ -3,14 +3,14 @@ from datetime import datetime
 from typing import Optional
 
 class PurchaseCreate(BaseModel):
-    amount: int
+    amount: float
     phone: str
     coupon_code: Optional[str] = None
     points_to_redeem: int = 0
 
 class PurchaseResponse(BaseModel):
     id: int
-    amount: int
+    amount: float
     points_earned: int
     created_at: datetime
     customer_name: Optional[str] = None
@@ -19,9 +19,10 @@ class PurchaseResponse(BaseModel):
     coupon_usage_id: Optional[int] = None
     redemption_id: Optional[int] = None
     points_redeemed: int = 0
-    coupon_discount: int = 0
-    points_discount: int = 0
-    payable_amount: int
+    coupon_discount: float = 0.0
+    points_discount: float = 0.0
+    payable_amount: float
 
     class Config:
         from_attributes = True
+

@@ -1,2 +1,2 @@
-def calculate_points(amount: int):
-    return amount // 10
+def calculate_points(amount: float):
+    return int(amount) // 10
