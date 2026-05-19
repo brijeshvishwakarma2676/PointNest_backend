@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, BackgroundTasks
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -18,6 +18,7 @@ from app.utils import response_parser
 from app.core import messages
 from app.core.dependencies import get_current_user
 from app.services.customer_service import get_or_create_customer, update_customer
+from app.services.email_service import send_welcome_email
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ router = APIRouter(prefix="/customers", tags=["customers"])
 @router.post("")
 def add_customer(
     data: CustomerCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -35,6 +37,16 @@ def add_customer(
         customer_data["shop_id"] = current_user.id
 
         customer = create_customer(db, customer_data)
+        
+        # Outbound welcome email dispatch (non-blocking)
+        if customer.email:
+            send_welcome_email(
+                background_tasks=background_tasks,
+                recipient_email=customer.email,
+                customer_name=customer.name,
+                initial_points=customer.points
+            )
+
         return response_parser.success_response(
             message=messages.CUSTOMER_CREATED_SUCCESSFULLY,
             data={
@@ -74,6 +86,7 @@ def add_customer(
 @router.post("/find-or-create")
 def find_or_create(
     data: CustomerCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -82,6 +95,15 @@ def find_or_create(
         customer_data["shop_id"] = current_user.id
 
         customer, is_new = get_or_create_customer(db, current_user.id, customer_data)
+
+        # Outbound welcome email dispatch if the customer is brand new (non-blocking)
+        if is_new and customer.email:
+            send_welcome_email(
+                background_tasks=background_tasks,
+                recipient_email=customer.email,
+                customer_name=customer.name,
+                initial_points=customer.points
+            )
 
         return response_parser.success_response(
             message=messages.CUSTOMER_RETRIEVED_OR_CREATED_SUCCESSFULLY,

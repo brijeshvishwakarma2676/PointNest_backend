@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Depends, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
@@ -15,6 +15,7 @@ from app.repositories.purchase_repo import get_recent_purchases
 from app.schemas.purchase import PurchaseCreate
 from app.services.coupon_service import validate_coupon, redeem_coupon
 from app.services.notification_service import emit_notification
+from app.services.email_service import send_purchase_receipt_email
 
 from app.services.redemption_service import calculate_discount
 from app.models.redemption import Redemption
@@ -28,6 +29,7 @@ router = APIRouter(prefix="/purchases", tags=["purchases"])
 @router.post("")
 def add_purchase(
     data: PurchaseCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -164,6 +166,21 @@ def add_purchase(
         )
         
         db.commit()
+
+        # Outbound receipt email dispatch (non-blocking)
+        if customer.email:
+            send_purchase_receipt_email(
+                background_tasks=background_tasks,
+                recipient_email=customer.email,
+                customer_name=customer.name,
+                amount=data.amount,
+                points_earned=earned_points,
+                points_redeemed=points_redeemed,
+                points_balance=customer.points,
+                savings=coupon_discount + points_discount,
+                shop_name=current_user.shop_name or "PointNest Partner",
+                transaction_id=f"PN-{purchase.id:06d}"
+            )
 
         # 10. Fire Notification for meaningful events
         if coupon_discount > 0 or points_discount > 0:
