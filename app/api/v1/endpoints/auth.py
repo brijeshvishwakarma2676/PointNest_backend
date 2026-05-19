@@ -1,15 +1,16 @@
 import logging
 from pydantic import ValidationError
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, BackgroundTasks
 from sqlalchemy.orm import Session
 
-from app.schemas.user import UserRegister, UserResponse, UserLogin
+from app.schemas.user import UserRegister, UserResponse, UserLogin, ForgotPasswordRequest, ResetPasswordRequest, VerifyOtpRequest
 from app.core.auth import create_access_token, create_refresh_token
 from jose import jwt, JWTError
 from app.config.database import get_db
 from app.services.user_service import register_user, login_user
 from app.utils import response_parser
 from app.core import messages
+
 
 logger = logging.getLogger(__name__)
 
@@ -110,3 +111,190 @@ def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
             message=messages.INTERNAL_SERVER_ERROR,
             success=False,
         )
+
+
+@router.post("/forgot-password")
+def forgot_password(
+    data: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    try:
+        from app.models.user import User, PasswordReset
+        
+        # Check if user exists
+        user = db.query(User).filter(User.email == data.email, User.is_active == 1).first()
+        if not user:
+            raise response_parser.generate_response(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="Registered access profile (email) not found.",
+                success=False,
+            )
+
+        # Generate a secure 6-digit numeric OTP
+        import random
+        otp_code = f"{random.randint(100000, 999999)}"
+
+        # Save the OTP in password_resets
+        from app.utils.datetime_utils import get_ist_now
+        from datetime import timedelta
+        
+        # Delete any existing reset requests for this email to keep table clean
+        db.query(PasswordReset).filter(PasswordReset.email == data.email).delete()
+
+        reset_req = PasswordReset(
+            email=data.email,
+            otp=otp_code,
+            expires_at=get_ist_now() + timedelta(minutes=10)
+        )
+        db.add(reset_req)
+        db.commit()
+
+        # Send the OTP validation email via background tasks
+        from app.services.email_service import send_otp_email
+        send_otp_email(
+            background_tasks=background_tasks,
+            recipient_email=data.email,
+            otp_code=otp_code,
+            owner_name=user.owner_name or "PointNest Partner"
+        )
+
+        return response_parser.success_response(
+            message="Verification OTP code successfully dispatched to your email."
+        )
+
+    except ValidationError as err:
+        raise response_parser.generate_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=messages.VALIDATION_ERROR,
+            data=err.errors(),
+            success=False,
+        )
+    except Exception as err:
+        if hasattr(err, "status_code"):
+            raise err
+        logger.exception(f"Some Error Occurred in forgot_password(): {err}")
+        raise response_parser.generate_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=messages.INTERNAL_SERVER_ERROR,
+            success=False,
+        )
+
+
+@router.post("/reset-password")
+def reset_password(
+    data: ResetPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    try:
+        from app.models.user import User, PasswordReset
+        from app.utils.datetime_utils import get_ist_now
+        from app.config.settings import settings
+        
+        # Verify the OTP and expiration (bypass if matching the configured static OTP)
+        is_static_valid = settings.STATIC_OTP and data.otp == settings.STATIC_OTP
+        
+        if not is_static_valid:
+            reset_req = db.query(PasswordReset).filter(
+                PasswordReset.email == data.email,
+                PasswordReset.otp == data.otp,
+                PasswordReset.expires_at >= get_ist_now()
+            ).first()
+
+            if not reset_req:
+                raise response_parser.generate_response(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    message="Invalid or expired verification OTP code.",
+                    success=False,
+                )
+
+
+        # Retrieve the user record
+        user = db.query(User).filter(User.email == data.email, User.is_active == 1).first()
+        if not user:
+            raise response_parser.generate_response(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="User profile no longer active or exists.",
+                success=False,
+            )
+
+        # Hash and update the user's password
+        from app.core.security import hash_password
+        user.password = hash_password(data.new_password)
+        
+        # Clean up all password reset records for this email
+        db.query(PasswordReset).filter(PasswordReset.email == data.email).delete()
+        
+        db.commit()
+
+        return response_parser.success_response(
+            message="Your partner terminal authorization key has been successfully updated."
+        )
+
+    except ValidationError as err:
+        raise response_parser.generate_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=messages.VALIDATION_ERROR,
+            data=err.errors(),
+            success=False,
+        )
+    except Exception as err:
+        if hasattr(err, "status_code"):
+            raise err
+        logger.exception(f"Some Error Occurred in reset_password(): {err}")
+        raise response_parser.generate_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=messages.INTERNAL_SERVER_ERROR,
+            success=False,
+        )
+
+
+@router.post("/verify-otp")
+def verify_otp(
+    data: VerifyOtpRequest,
+    db: Session = Depends(get_db)
+):
+    try:
+        from app.models.user import PasswordReset
+        from app.utils.datetime_utils import get_ist_now
+        from app.config.settings import settings
+        
+        # Verify the OTP and expiration (bypass if matching the configured static OTP)
+        is_static_valid = settings.STATIC_OTP and data.otp == settings.STATIC_OTP
+        
+        if not is_static_valid:
+            reset_req = db.query(PasswordReset).filter(
+                PasswordReset.email == data.email,
+                PasswordReset.otp == data.otp,
+                PasswordReset.expires_at >= get_ist_now()
+            ).first()
+
+            if not reset_req:
+                raise response_parser.generate_response(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    message="Invalid or expired verification OTP code.",
+                    success=False,
+                )
+
+        return response_parser.success_response(
+            message="Verification OTP code successfully verified."
+        )
+
+    except ValidationError as err:
+        raise response_parser.generate_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=messages.VALIDATION_ERROR,
+            data=err.errors(),
+            success=False,
+        )
+    except Exception as err:
+        if hasattr(err, "status_code"):
+            raise err
+        logger.exception(f"Some Error Occurred in verify_otp(): {err}")
+        raise response_parser.generate_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=messages.INTERNAL_SERVER_ERROR,
+            success=False,
+        )
+
+

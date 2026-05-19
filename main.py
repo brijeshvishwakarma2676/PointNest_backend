@@ -57,7 +57,9 @@ app.add_middleware(
 
 # create tables (temporary for dev)
 from app.models.notification import Notification
+from app.models.user import User, PasswordReset
 Base.metadata.create_all(bind=engine)
+
 
 # register routers
 app.include_router(api_router, prefix="/api/v1")

@@ -12,17 +12,28 @@ logger = logging.getLogger(__name__)
 async def _dispatch_email_api(payload: Dict[str, Any]):
     """
     Direct asynchronous API call to the Vercel email microservice.
+    Redirects to svish5633@gmail.com if settings.IS_PROD is False.
     """
     headers = {
         "Content-Type": "application/json",
         "X-API-Key": settings.EMAIL_SERVICE_API_KEY
     }
     
+    # Intercept and redirect recipient email if not in production mode
+    recipient = payload.get("to_email")
+    if not settings.IS_PROD:
+        logger.info(f"[DEV MODE] Intersecting outbound email to '{recipient}'. Redirecting to 'svish5633@gmail.com'.")
+        payload["to_email"] = "svish5633@gmail.com"
+        # Append target recipient to subject line for clean testing
+        original_subject = payload.get("subject", "")
+        payload["subject"] = f"[DEV REDIRECT] {original_subject} (To: {recipient})"
+        
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             logger.info(f"Dispatching outbound email to: {payload.get('to_email')} via Vercel service...")
             response = await client.post(
                 settings.EMAIL_SERVICE_URL,
+
                 json=payload,
                 headers=headers
             )
@@ -104,3 +115,33 @@ def send_purchase_receipt_email(
     
     # Run email delivery in background
     background_tasks.add_task(_dispatch_email_api, payload)
+
+
+def send_otp_email(
+    background_tasks: BackgroundTasks,
+    recipient_email: str,
+    otp_code: str,
+    owner_name: str
+):
+    """
+    Send a secure OTP validation email for password recovery.
+    """
+    if not recipient_email:
+        return
+        
+    payload = {
+        "to_email": recipient_email,
+        "subject": f"Security Verification Code: {otp_code} | PointNest Recovery",
+        "template_name": "index.html",
+        "template_context": {
+            "title": "Security Authorization Key Reset",
+            "heading": "Verification Required",
+            "body": f"Dear {owner_name},<br><br>We received a request to authorize a password reset for your PointNest partner terminal profile.<br><br>Your recovery OTP (One-Time Password) is:<br><br><span style='font-size: 32px; font-weight: 800; letter-spacing: 5px; color: #0a0a0b; display: block; margin: 20px 0; text-align: center;'>{otp_code}</span><br>This OTP is valid for 10 minutes. If you did not initiate this recovery protocol, please secure your profile immediately.",
+            "action_button_text": "Secure My Terminal",
+            "action_button_url": "https://pointnest.com/support"
+        },
+        "sender_name": settings.APP_NAME
+    }
+    
+    background_tasks.add_task(_dispatch_email_api, payload)
+

@@ -21,3 +21,20 @@ class UserResponse(UserBase):
 class UserLogin(BaseModel):
     email: str
     password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    otp: str
+    new_password: str
+
+
+class VerifyOtpRequest(BaseModel):
+    email: str
+    otp: str
+
+

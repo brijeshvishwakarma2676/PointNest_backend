@@ -16,3 +16,13 @@ class User(Base):
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class PasswordReset(Base):
+    __tablename__ = "password_resets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), index=True)
+    otp = Column(String(10))
+    expires_at = Column(DateTime)
+

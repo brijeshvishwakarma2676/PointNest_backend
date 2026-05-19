@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # Outbound Email Service (Vercel Integration)
     EMAIL_SERVICE_URL: str = "https://email-service-gamma-steel.vercel.app/api/v1/send"
     EMAIL_SERVICE_API_KEY: str = "pointnest-secure-email-key-2026"
+    STATIC_OTP: str = ""
+
 
     @property
     def DATABASE_URL(self) -> str:
