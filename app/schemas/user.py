@@ -38,3 +38,7 @@ class VerifyOtpRequest(BaseModel):
     otp: str
 
 
+class GoogleLoginRequest(BaseModel):
+    id_token: str
+
+

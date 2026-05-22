@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     EMAIL_SERVICE_API_KEY: str = "pointnest-secure-email-key-2026"
     STATIC_OTP: str = "210900"
     GROQ_API_KEY: str = ""
+    GOOGLE_CLIENT_ID: str = ""
 
 
     @property

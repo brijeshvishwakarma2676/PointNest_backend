@@ -3,7 +3,7 @@ from pydantic import ValidationError
 from fastapi import APIRouter, Depends, status, BackgroundTasks
 from sqlalchemy.orm import Session
 
-from app.schemas.user import UserRegister, UserResponse, UserLogin, ForgotPasswordRequest, ResetPasswordRequest, VerifyOtpRequest
+from app.schemas.user import UserRegister, UserResponse, UserLogin, ForgotPasswordRequest, ResetPasswordRequest, VerifyOtpRequest, GoogleLoginRequest
 from app.core.auth import create_access_token, create_refresh_token
 from jose import jwt, JWTError
 from app.config.database import get_db
@@ -291,6 +291,110 @@ def verify_otp(
         if hasattr(err, "status_code"):
             raise err
         logger.exception(f"Some Error Occurred in verify_otp(): {err}")
+        raise response_parser.generate_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=messages.INTERNAL_SERVER_ERROR,
+            success=False,
+        )
+
+
+@router.post("/google")
+async def google_auth(
+    data: GoogleLoginRequest,
+    db: Session = Depends(get_db)
+):
+    import httpx
+    try:
+        # Validate the Google ID token by calling Google's TokenInfo API
+        async with httpx.AsyncClient() as client:
+            res = await client.get(
+                f"https://oauth2.googleapis.com/tokeninfo?id_token={data.id_token}",
+                timeout=10.0
+            )
+            if res.status_code != 200:
+                raise response_parser.generate_response(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    message="Invalid or expired Google authentication credentials.",
+                    success=False,
+                )
+            token_info = res.json()
+            
+            # Extract claims
+            email = token_info.get("email")
+            google_id = token_info.get("sub")
+            owner_name = token_info.get("name") or "PointNest Partner"
+            
+            if not email or not google_id:
+                raise response_parser.generate_response(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    message="Missing essential profile metadata in Google credentials.",
+                    success=False,
+                )
+                
+            # Perform atomic multi-auth account lookup and linking
+            from app.models.user import User
+            from app.core.auth import create_access_token, create_refresh_token
+            
+            # 1. Search for user by email
+            user = db.query(User).filter(User.email == email, User.is_active == 1).first()
+            
+            if user:
+                # Account linking: If user registered manually, link their Google ID if missing
+                if not user.google_id:
+                    user.google_id = google_id
+                    db.commit()
+                    db.refresh(user)
+            else:
+                # 2. Search for user by Google ID (just in case they changed email, or to be absolutely secure)
+                user = db.query(User).filter(User.google_id == google_id, User.is_active == 1).first()
+                
+                if not user:
+                    # 3. New User Registration: Auto-provision with defaults
+                    # Ensure shop name uniqueness
+                    shop_name_base = f"{owner_name}'s Shop"
+                    shop_name = shop_name_base
+                    counter = 1
+                    # Ensure shop_name is unique in DB
+                    while db.query(User).filter(User.shop_name == shop_name, User.is_active == 1).first():
+                        shop_name = f"{shop_name_base} {counter}"
+                        counter += 1
+                        
+                    user = User(
+                        email=email,
+                        google_id=google_id,
+                        owner_name=owner_name,
+                        shop_name=shop_name,
+                        phone="", # Keep empty string to satisfy Pydantic str validation
+                        password=None # Distinguishes social login from password logins
+                    )
+                    db.add(user)
+                    db.commit()
+                    db.refresh(user)
+            
+            # Issue authentication tokens
+            token_data = {"user_id": user.id}
+            access_token = create_access_token(token_data)
+            refresh_token = create_refresh_token(token_data)
+            
+            return response_parser.success_response(
+                message=messages.LOGIN_SUCCESSFULLY,
+                data={
+                    "access_token": access_token, 
+                    "refresh_token": refresh_token
+                },
+            )
+            
+    except ValidationError as err:
+        raise response_parser.generate_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=messages.VALIDATION_ERROR,
+            data=err.errors(),
+            success=False,
+        )
+    except Exception as err:
+        if hasattr(err, "status_code"):
+            raise err
+        logger.exception(f"Some Error Occurred in google_auth(): {err}")
         raise response_parser.generate_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message=messages.INTERNAL_SERVER_ERROR,

@@ -12,6 +12,7 @@ class User(Base):
     email = Column(String(255), unique=True, index=True)
     phone = Column(String(20))
     password = Column(String(255))
+    google_id = Column(String(255), nullable=True)
 
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=func.now())

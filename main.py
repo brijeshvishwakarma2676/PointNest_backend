@@ -60,6 +60,19 @@ from app.models.notification import Notification
 from app.models.user import User, PasswordReset
 Base.metadata.create_all(bind=engine)
 
+# Self-healing migration for google_id column
+from sqlalchemy import text
+try:
+    with engine.connect() as conn:
+        res = conn.execute(text("SHOW COLUMNS FROM users LIKE 'google_id'")).fetchone()
+        if not res:
+            logger.info("Adding google_id column to users table...")
+            conn.execute(text("ALTER TABLE users ADD COLUMN google_id VARCHAR(255) NULL;"))
+            conn.commit()
+            logger.info("google_id column added successfully!")
+except Exception as e:
+    logger.warning(f"Could not automatically verify or add google_id column: {e}")
+
 
 # register routers
 app.include_router(api_router, prefix="/api/v1")
